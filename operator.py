@@ -98,12 +98,40 @@ class GitHubKeyManager:
         
         return keys_deleted
 
+    def create_key(self, repo, title, key):
+        """Create a new GitHub deploy key."""
+        try:
+            managed_title = f"k8s-operator:{title}"
+            return repo.create_key(managed_title, key, read_only=True)
+        except github.GithubException as e:
+            self.logger.error(f"Error creating key: {str(e)}")
+            raise
+
+    def is_operator_managed_key(self, key_title):
+        """Check if a key was created by this operator"""
+        return key_title.startswith("k8s-operator:")
+
+    def get_key_base_title(self, key_title):
+        """Get the original title without the operator prefix"""
+        if self.is_operator_managed_key(key_title):
+            return key_title.split(":", 1)[1]
+        return key_title
+
 class KubernetesSecretManager:
     def __init__(self, logger):
         self.logger = logger
 
-    def create_or_update_secret(self, name, namespace, secret_data, owner_reference):
-        """Create or update Kubernetes secret."""
+    def create_or_update_secret(self, name, namespace, private_key, public_key, owner_reference):
+        """Create or update Kubernetes secret with SSH keys."""
+        # Add github.com to known_hosts
+        known_hosts = "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
+        
+        secret_data = {
+            'identity': private_key,
+            'identity.pub': public_key,
+            'known_hosts': known_hosts
+        }
+        
         encoded_data = {k: base64.b64encode(v.encode()).decode() for k, v in secret_data.items()}
         
         try:
@@ -159,11 +187,7 @@ def create_deploy_key(spec, logger, patch, **kwargs):
         
         # Generate and create new key
         private_key, public_key = github_manager.generate_ssh_key()
-        key = repo.create_key(
-            title=title,
-            key=public_key,
-            read_only=spec.get('readOnly', True)
-        )
+        key = github_manager.create_key(repo, title, public_key)
         logger.info(f"Created new deploy key: {key.id}")
         
         if not github_manager.verify_key_exists(repo, key.id):
@@ -185,7 +209,8 @@ def create_deploy_key(spec, logger, patch, **kwargs):
         secret_manager.create_or_update_secret(
             secret_name,
             kwargs['meta']['namespace'],
-            {'ssh-privatekey': private_key},
+            private_key,
+            public_key,
             owner_reference
         )
         
@@ -240,21 +265,33 @@ def delete_deploy_key(spec, meta, status, logger, **kwargs):
 
 @kopf.timer('github.com', 'v1alpha1', 'githubdeploykeys', interval=60.0)
 def reconcile_deploy_key(spec, status, logger, patch, **kwargs):
+    """Periodically reconcile the deploy key to ensure it exists."""
     github_manager = GitHubKeyManager(logger)
     
     try:
         repo = github_manager.get_repository(spec['repository'])
         key_id = status.get('keyId') if status else None
+        base_title = spec.get('title', 'Kubernetes-managed deploy key')
+        managed_title = f"k8s-operator:{base_title}"
+        
+        # Clean up any operator-managed keys that don't match our key_id
+        for key in repo.get_keys():
+            if github_manager.is_operator_managed_key(key.title) and (not key_id or key.id != key_id):
+                logger.info(f"Found stale operator-managed deploy key {key.id}, deleting")
+                github_manager.delete_key_by_id(repo, key.id)
         
         if not key_id:
             logger.info("No key ID in status, recreating deploy key")
             create_deploy_key(spec, logger, patch, **kwargs)
             return
-        
+            
+        # Check if our key still exists
         try:
             key = repo.get_key(key_id)
-            if key.title != spec.get('title', 'Kubernetes-managed deploy key'):
+            if key.title != managed_title:
                 logger.info(f"Deploy key {key_id} exists but title has changed, recreating")
+                # Delete old key before creating new one
+                github_manager.delete_key_by_id(repo, key_id)
                 create_deploy_key(spec, logger, patch, **kwargs)
             else:
                 logger.info(f"Deploy key {key_id} exists and is correctly configured")
@@ -264,7 +301,7 @@ def reconcile_deploy_key(spec, status, logger, patch, **kwargs):
                 create_deploy_key(spec, logger, patch, **kwargs)
             else:
                 logger.error(f"Error checking deploy key {key_id}: {e}")
-        
+                
         # Verify secret exists
         secret_name = f"{kwargs['meta']['name']}-private-key"
         try:
