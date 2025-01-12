@@ -1,0 +1,64 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: githubdeploykeys.github.com
+spec:
+  group: github.com
+  names:
+    kind: GitHubDeployKey
+    listKind: GitHubDeployKeyList
+    plural: githubdeploykeys
+    singular: githubdeploykey
+    shortNames:
+      - ghdk
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - repository
+                - title
+              properties:
+                repository:
+                  type: string
+                  description: "The GitHub repository in format owner/repo"
+                title:
+                  type: string
+                  description: "Title of the deploy key"
+                readOnly:
+                  type: boolean
+                  description: "Whether the key should be read-only"
+                  default: true
+            status:
+              type: object
+              properties:
+                keyId:
+                  type: integer
+                  description: "The ID of the deploy key in GitHub"
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - status
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+      subresources:
+        status: {}

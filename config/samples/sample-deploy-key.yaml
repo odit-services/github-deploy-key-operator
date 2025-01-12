@@ -1,0 +1,8 @@
+apiVersion: github.com/v1alpha1
+kind: GitHubDeployKey
+metadata:
+  name: domobot-deploy-key
+spec:
+  repository: "gurghet/domobot"  # Replace with your repository
+  title: "Kubernetes-managed deploy key"
+  readOnly: true
