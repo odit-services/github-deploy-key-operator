@@ -6,66 +6,19 @@ on:
       - master
 
 permissions:
-  contents: write
   packages: write
-  pull-requests: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/operator
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-
-      - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/git @semantic-release/github
-
-      - name: Semantic Release
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v4
-        with:
-          semantic_version: 19
-          branches: |
-            [
-              'master'
-            ]
-          extra_plugins: |
-            @semantic-release/git
-            @semantic-release/github
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   build-and-push:
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Debug outputs
-        run: |
-          echo "new_release_published: ${{ needs.release.outputs.new_release_published }}"
-          echo "new_release_version: ${{ needs.release.outputs.new_release_version }}"
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -86,58 +39,5 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.release.outputs.new_release_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  publish-helm:
-    needs: release
-    if: needs.release.outputs.new_release_published == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Debug outputs
-        run: |
-          echo "new_release_published: ${{ needs.release.outputs.new_release_published }}"
-          echo "new_release_version: ${{ needs.release.outputs.new_release_version }}"
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.12.1
-
-      - name: Configure Git
-        run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-
-      - name: Update Helm chart version
-        run: |
-          VERSION=${{ needs.release.outputs.new_release_version }}
-          sed -i "s/^version:.*$/version: $VERSION/" charts/github-deploy-key-operator/Chart.yaml
-          sed -i "s/^appVersion:.*$/appVersion: \"$VERSION\"/" charts/github-deploy-key-operator/Chart.yaml
-
-      - name: Package Helm chart
-        run: |
-          mkdir -p .cr-release-packages
-          helm package charts/github-deploy-key-operator --version ${{ needs.release.outputs.new_release_version }} -d .cr-release-packages
-
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages || true
-          git checkout gh-pages || git checkout --orphan gh-pages
-          git rm -rf . || true
-          git clean -fxd || true
-
-      - name: Update Helm repository
-        run: |
-          mkdir -p charts
-          mv .cr-release-packages/* charts/
-          helm repo index charts/
-          git add charts/
-          git commit -m "chore: publish helm chart v${{ needs.release.outputs.new_release_version }}"
-          git push origin gh-pages
