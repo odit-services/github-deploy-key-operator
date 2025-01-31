@@ -17,8 +17,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.get-version.outputs.version }}
+      released: ${{ steps.get-version.outputs.released }}
     permissions:
       contents: write
       issues: write
@@ -51,9 +51,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
 
+      - name: Get version
+        id: get-version
+        run: |
+          if [ -f .VERSION ]; then
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "version=$(cat .VERSION)" >> $GITHUB_OUTPUT
+          else
+            echo "released=false" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
+
   build-and-push:
     needs: release
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,13 +94,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.release.outputs.new_release_version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.release.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   publish-helm:
     needs: [release, build-and-push]
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -106,12 +117,12 @@ jobs:
       - name: Update Chart version
         uses: mikefarah/yq@master
         with:
-          cmd: yq -i '.version = "${{ needs.release.outputs.new_release_version }}"' 'charts/github-deploy-key-operator/Chart.yaml'
+          cmd: yq -i '.version = "${{ needs.release.outputs.version }}"' 'charts/github-deploy-key-operator/Chart.yaml'
 
       - name: Update Chart appVersion
         uses: mikefarah/yq@master
         with:
-          cmd: yq -i '.appVersion = "${{ needs.release.outputs.new_release_version }}"' 'charts/github-deploy-key-operator/Chart.yaml'
+          cmd: yq -i '.appVersion = "${{ needs.release.outputs.version }}"' 'charts/github-deploy-key-operator/Chart.yaml'
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -123,4 +134,4 @@ jobs:
       - name: Push Helm chart to OCI registry
         run: |
           helm package charts/github-deploy-key-operator
-          helm push github-deploy-key-operator-${{ needs.release.outputs.new_release_version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository }}
+          helm push github-deploy-key-operator-${{ needs.release.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository }}
