@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+LABEL org.opencontainers.image.source=https://github.com/gurghet/github-deploy-key-operator
+
 WORKDIR /app
 
 COPY requirements.txt .
