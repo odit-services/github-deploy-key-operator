@@ -30,14 +30,14 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
+          node-version: 'lts/*'
 
       - name: Install dependencies
         run: npm install -g semantic-release @semantic-release/git @semantic-release/github
 
-      - name: Create Release
+      - name: Release
         id: semantic_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,15 +45,17 @@ jobs:
           NEW_VERSION=$(npx semantic-release --dry-run | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || true)
           if [ -n "$NEW_VERSION" ]; then
             echo "new_release_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "new_release_published=true" >> $GITHUB_OUTPUT
             npx semantic-release
           else
             echo "No new version to be released"
-            exit 0
+            echo "new_release_version=" >> $GITHUB_OUTPUT
+            echo "new_release_published=false" >> $GITHUB_OUTPUT
           fi
 
   build-and-push:
     needs: release
-    if: needs.release.outputs.new_release_version != ''
+    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -77,41 +79,37 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}/operator:latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.release.outputs.new_release_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   publish-helm:
     needs: release
-    if: needs.release.outputs.new_release_version != ''
+    if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: v3.12.1
 
-      - name: Install yq
+      - name: Configure Git
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod a+x /usr/local/bin/yq
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Update chart version
+      - name: Update Helm chart version
         run: |
-          yq e -i '.version = "${{ needs.release.outputs.new_release_version }}"' charts/github-deploy-key-operator/Chart.yaml
-          yq e -i '.appVersion = "${{ needs.release.outputs.new_release_version }}"' charts/github-deploy-key-operator/Chart.yaml
+          VERSION=${{ needs.release.outputs.new_release_version }}
+          sed -i "s/^version:.*$/version: $VERSION/" charts/github-deploy-key-operator/Chart.yaml
+          sed -i "s/^appVersion:.*$/appVersion: \"$VERSION\"/" charts/github-deploy-key-operator/Chart.yaml
 
       - name: Package Helm chart
         run: |
