@@ -1,3 +1,11 @@
+## [1.3.1](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.0...v1.3.1) (2025-01-31)
+
+
+### Bug Fixes
+
+* add semantic-release/exec plugin ([ad17557](https://github.com/gurghet/github-deploy-key-operator/commit/ad175575abad18bd7d7fc0a46beeccb746a790c9))
+* add version file output to semantic-release ([c79f276](https://github.com/gurghet/github-deploy-key-operator/commit/c79f276dce47417f56b3e60733497537efa698d9))
+
 # [1.3.0](https://github.com/gurghet/github-deploy-key-operator/compare/v1.2.3...v1.3.0) (2025-01-31)
 
 
