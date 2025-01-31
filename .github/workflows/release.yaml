@@ -90,7 +90,64 @@ jobs:
           cache-to: type=gha,mode=max
 
   release-chart:
-    needs: [release, build-and-push]
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.12.1
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package charts/github-deploy-key-operator --version ${{ needs.release.outputs.new_release_version }} --destination .cr-release-packages
+
+      - name: Upload Helm chart
+        uses: actions/upload-artifact@v3
+        with:
+          name: helm-chart
+          path: .cr-release-packages/*.tgz
+
+      - name: Download previous charts
+        run: |
+          git checkout gh-pages || git checkout --orphan gh-pages
+          git rm -rf . || true
+          git clean -fxd
+          mkdir -p charts
+          
+      - name: Download chart artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: helm-chart
+          path: charts
+
+      - name: Generate Helm repo index
+        run: |
+          helm repo index charts/
+          cp charts/index.yaml index.yaml
+
+      - name: Push to gh-pages
+        run: |
+          git add charts/
+          git add index.yaml
+          git commit -m "chore: publish helm chart ${{ needs.release.outputs.new_release_version }}"
+          git push origin gh-pages -f
+
+  publish-chart:
+    needs: release-chart
     if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     permissions:
