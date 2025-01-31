@@ -42,16 +42,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          NEW_VERSION=$(npx semantic-release --dry-run | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || true)
+          echo "Running semantic-release dry run..."
+          DRY_RUN_OUTPUT=$(npx semantic-release --dry-run)
+          echo "Dry run output: $DRY_RUN_OUTPUT"
+          NEW_VERSION=$(echo "$DRY_RUN_OUTPUT" | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || true)
+          echo "Extracted version: $NEW_VERSION"
           if [ -n "$NEW_VERSION" ]; then
+            echo "New version detected: $NEW_VERSION"
             echo "new_release_version=$NEW_VERSION" >> $GITHUB_OUTPUT
             echo "new_release_published=true" >> $GITHUB_OUTPUT
+            echo "Running actual release..."
             npx semantic-release
           else
             echo "No new version to be released"
             echo "new_release_version=" >> $GITHUB_OUTPUT
             echo "new_release_published=false" >> $GITHUB_OUTPUT
           fi
+          echo "Final outputs:"
+          cat $GITHUB_OUTPUT
 
   build-and-push:
     needs: release
@@ -61,6 +69,11 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Debug outputs
+        run: |
+          echo "new_release_published: ${{ needs.release.outputs.new_release_published }}"
+          echo "new_release_version: ${{ needs.release.outputs.new_release_version }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -92,6 +105,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Debug outputs
+        run: |
+          echo "new_release_published: ${{ needs.release.outputs.new_release_published }}"
+          echo "new_release_version: ${{ needs.release.outputs.new_release_version }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 
