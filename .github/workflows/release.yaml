@@ -17,7 +17,7 @@ jobs:
       packages: write
     outputs:
       new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,10 +33,18 @@ jobs:
         run: npm install -g semantic-release @semantic-release/git @semantic-release/github
 
       - name: Create Release
-        id: semantic
+        id: semantic_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          NEW_VERSION=$(npx semantic-release --dry-run | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [ -n "$NEW_VERSION" ]; then
+            echo "new_release_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            npx semantic-release
+          else
+            echo "No new version to be released"
+            exit 0
+          fi
 
   build-and-push:
     needs: release
@@ -91,6 +99,11 @@ jobs:
         uses: azure/setup-helm@v3
         with:
           version: v3.12.1
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod a+x /usr/local/bin/yq
 
       - name: Update chart version
         run: |
