@@ -17,49 +17,33 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
     permissions:
       contents: write
       packages: write
-    outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_version: ${{ steps.semantic_release.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
         with:
-          node-version: 'lts/*'
-
-      - name: Install dependencies
-        run: npm install -g semantic-release @semantic-release/git @semantic-release/github
-
-      - name: Release
-        id: semantic_release
+          semantic_version: 19
+          branches: |
+            [
+              'master'
+            ]
+          extra_plugins: |
+            @semantic-release/git
+            @semantic-release/github
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Running semantic-release dry run..."
-          DRY_RUN_OUTPUT=$(npx semantic-release --dry-run)
-          echo "Dry run output: $DRY_RUN_OUTPUT"
-          NEW_VERSION=$(echo "$DRY_RUN_OUTPUT" | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || true)
-          echo "Extracted version: $NEW_VERSION"
-          if [ -n "$NEW_VERSION" ]; then
-            echo "New version detected: $NEW_VERSION"
-            echo "new_release_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "new_release_published=true" >> $GITHUB_OUTPUT
-            echo "Running actual release..."
-            npx semantic-release
-          else
-            echo "No new version to be released"
-            echo "new_release_version=" >> $GITHUB_OUTPUT
-            echo "new_release_published=false" >> $GITHUB_OUTPUT
-          fi
-          echo "Final outputs:"
-          cat $GITHUB_OUTPUT
 
   build-and-push:
     needs: release
