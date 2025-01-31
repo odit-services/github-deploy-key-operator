@@ -43,7 +43,8 @@ jobs:
             semantic-release \
             @semantic-release/git \
             @semantic-release/changelog \
-            @semantic-release/github
+            @semantic-release/github \
+            @semantic-release/exec
 
       - name: Semantic Release
         id: semantic
