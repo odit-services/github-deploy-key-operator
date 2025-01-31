@@ -70,7 +70,7 @@ spec:
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: ghcr-secret
-              key: github-token
+              name: github-token
+              key: GITHUB_TOKEN
         - name: KOPF_NAMESPACE
           value: ""  # Empty string means watch all namespaces

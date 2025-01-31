@@ -1,0 +1,13 @@
+apiVersion: v2
+name: github-deploy-key-operator
+description: A Kubernetes operator that manages GitHub deploy keys
+type: application
+version: 0.1.0
+appVersion: "latest"
+maintainers:
+  - name: gurghet
+keywords:
+  - github
+  - deploy-key
+  - operator
+  - flux

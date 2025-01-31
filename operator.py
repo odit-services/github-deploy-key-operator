@@ -21,10 +21,10 @@ class GitHubKeyManager:
         """Retrieve GitHub token from secret."""
         try:
             secret = core_v1_api.read_namespaced_secret(
-                name='ghcr-secret',
+                name='github-token',
                 namespace='flux-system'
             )
-            token = base64.b64decode(secret.data['github-token']).decode()
+            token = base64.b64decode(secret.data['GITHUB_TOKEN']).decode()
             self.logger.info(f"Got GitHub token: {token[:4]}...{token[-4:]}")
             return token
         except kubernetes.client.exceptions.ApiException as e:
