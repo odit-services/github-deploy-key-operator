@@ -5,32 +5,49 @@ This Helm chart installs the GitHub Deploy Key Operator in your Kubernetes clust
 ## Prerequisites
 
 - Kubernetes 1.16+
-- Helm 3.0+
-- A GitHub token with appropriate permissions
+- Helm 3.0+ or Flux v2
+- A GitHub token with repository access permissions
 
 ## Installation
 
-### Add the Helm Repository
+### Using Flux (recommended)
 
+1. Add the Helm repository:
 ```bash
-helm repo add github-deploy-key-operator https://gurghet.github.io/github-deploy-key-operator
-helm repo update
+flux create source helm github-deploy-key-operator \
+  --url=oci://ghcr.io/gurghet/github-deploy-key-operator \
+  --namespace=flux-system
 ```
 
-### Install the Chart
-
-1. Using a new GitHub token:
-
+2. Create a GitHub token secret:
 ```bash
-helm install github-deploy-key-operator github-deploy-key-operator/github-deploy-key-operator \
-  --set github.token=<your-github-token>
+kubectl create secret generic github-token \
+  --namespace flux-system \
+  --from-literal=GITHUB_TOKEN=your_github_token
 ```
 
-2. Using an existing secret:
-
+3. Install the operator:
 ```bash
-helm install github-deploy-key-operator github-deploy-key-operator/github-deploy-key-operator \
-  --set github.existingSecret=my-github-secret \
+flux create helmrelease github-deploy-key-operator \
+  --namespace=flux-system \
+  --source=HelmRepository/github-deploy-key-operator \
+  --chart=github-deploy-key-operator \
+  --values='{"github":{"existingSecret":"github-token","existingSecretKey":"GITHUB_TOKEN"}}'
+```
+
+### Using Helm directly
+
+1. Add the Helm repository:
+```bash
+helm registry login ghcr.io
+helm pull oci://ghcr.io/gurghet/github-deploy-key-operator/github-deploy-key-operator --version 1.3.1
+```
+
+2. Install the chart:
+```bash
+helm install github-deploy-key-operator github-deploy-key-operator-1.3.1.tgz \
+  --namespace flux-system \
+  --set github.existingSecret=github-token \
   --set github.existingSecretKey=GITHUB_TOKEN
 ```
 
@@ -39,7 +56,7 @@ helm install github-deploy-key-operator github-deploy-key-operator/github-deploy
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `replicaCount` | Number of operator replicas | `1` |
-| `image.repository` | Image repository | `ghcr.io/gurghet/github-deploy-key-operator` |
+| `image.repository` | Image repository | `ghcr.io/gurghet/github-deploy-key-operator/operator` |
 | `image.tag` | Image tag | `latest` |
 | `image.pullPolicy` | Image pull policy | `Always` |
 | `github.existingSecret` | Name of existing secret with GitHub token | `""` |
@@ -49,35 +66,10 @@ helm install github-deploy-key-operator github-deploy-key-operator/github-deploy
 | `serviceAccount.name` | Service account name | `""` |
 | `podSecurityContext` | Pod security context | See values.yaml |
 | `securityContext` | Container security context | See values.yaml |
-| `resources` | Pod resource requests/limits | `{}` |
-| `nodeSelector` | Node selector | `{}` |
-| `tolerations` | Pod tolerations | `[]` |
-| `affinity` | Pod affinity | `{}` |
 
-## Usage with Flux
+## Security Considerations
 
-```yaml
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
-kind: HelmRelease
-metadata:
-  name: github-deploy-key-operator
-  namespace: flux-system
-spec:
-  interval: 5m
-  chart:
-    spec:
-      chart: github-deploy-key-operator
-      version: "0.1.0"  # Use specific version
-      sourceRef:
-        kind: HelmRepository
-        name: github-deploy-key-operator
-        namespace: flux-system
-  values:
-    github:
-      existingSecret: github-token
-      existingSecretKey: GITHUB_TOKEN
-```
-
-## License
-
-This chart is available under the same license as the GitHub Deploy Key Operator.
+- The GitHub token should have the minimum required permissions (repo access)
+- Use `github.existingSecret` instead of `github.token` to avoid exposing the token in Helm values
+- The operator runs with restricted security context by default
+- All generated SSH keys are stored as Kubernetes secrets

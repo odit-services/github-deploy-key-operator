@@ -13,7 +13,7 @@ A Kubernetes operator that automatically manages GitHub Deploy Keys for your rep
 
 ## Installation
 
-### Using Helm
+### Using Flux (recommended)
 
 1. Add the Helm repository:
 ```bash
@@ -38,6 +38,8 @@ flux create helmrelease github-deploy-key-operator \
   --values='{"github":{"existingSecret":"github-token","existingSecretKey":"GITHUB_TOKEN"}}'
 ```
 
+For Helm-only installation, see the [chart documentation](charts/github-deploy-key-operator/README.md).
+
 ## Usage
 
 1. Create a GitHubDeployKey resource:
@@ -51,7 +53,7 @@ metadata:
 spec:
   repository: "owner/repository"  # Your GitHub repository
   title: "Kubernetes-managed deploy key"
-  readOnly: true
+  readOnly: true  # Recommended for security
 ```
 
 The operator will:
@@ -63,18 +65,9 @@ The operator will:
 ## Configuration
 
 The operator requires:
-- A GitHub token with repo access stored in a Kubernetes secret
+- A GitHub token with repository access permissions
 - The token secret must be in the same namespace as the operator
 - RBAC permissions to manage secrets and custom resources
-
-### Helm Values
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `github.existingSecret` | Name of the secret containing the GitHub token | `""` |
-| `github.existingSecretKey` | Key in the secret that contains the GitHub token | `"GITHUB_TOKEN"` |
-| `image.repository` | Image repository | `ghcr.io/gurghet/github-deploy-key-operator/operator` |
-| `image.tag` | Image tag | `latest` |
 
 ## Security
 
@@ -91,10 +84,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
-
-## Acknowledgments
-
-Built with:
-- [Kopf](https://github.com/nolar/kopf) - Kubernetes Operator Framework
-- [PyGithub](https://github.com/PyGithub/PyGithub) - GitHub API wrapper for Python
-- [kubernetes-client](https://github.com/kubernetes-client/python) - Official Kubernetes Python client
