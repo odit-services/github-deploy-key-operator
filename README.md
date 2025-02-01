@@ -30,14 +30,14 @@ This operator automates these tasks by:
                          └───────┬──────┘
                                  │
                          3️⃣      │
-              ┌─────────────────┴─────────────┐
-              │                               │
-              ▼                               ▼
-    ┌──────────────┐                 ┌──────────────┐
-    │   GitHub     │                 │  Kubernetes  │
-    │ Deploy Key   │                 │   Secret     │
-    │  (public)    │                 │  (private)   │
-    └──────────────┘                 └──────────────┘
+               ┌─────────────────┴─────────────┐
+               │                               │
+               ▼                               ▼
+     ┌──────────────┐                 ┌──────────────┐
+     │   GitHub     │                 │  Kubernetes  │
+     │ Deploy Key   │                 │   Secret     │
+     │  (public)    │                 │  (private)   │
+     └──────────────┘                 └──────────────┘
 ```
 
 ## Quick Start (5 minutes)
