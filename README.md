@@ -13,21 +13,29 @@ A Kubernetes operator that automatically manages GitHub Deploy Keys for your rep
 
 ## Installation
 
-1. Apply the CRD and RBAC configurations:
+### Using Helm
+
+1. Add the Helm repository:
 ```bash
-kubectl apply -f config/deploy/operator.yaml
+flux create source helm github-deploy-key-operator \
+  --url=oci://ghcr.io/gurghet/github-deploy-key-operator \
+  --namespace=flux-system
 ```
 
-2. Create a GitHub token secret in the `flux-system` namespace:
+2. Create a GitHub token secret:
 ```bash
-kubectl create secret generic ghcr-secret \
+kubectl create secret generic github-token \
   --namespace flux-system \
-  --from-literal=github-token=your_github_token
+  --from-literal=GITHUB_TOKEN=your_github_token
 ```
 
-3. Deploy the operator:
+3. Install the operator:
 ```bash
-kubectl apply -f config/deploy/operator.yaml
+flux create helmrelease github-deploy-key-operator \
+  --namespace=flux-system \
+  --source=HelmRepository/github-deploy-key-operator \
+  --chart=github-deploy-key-operator \
+  --values='{"github":{"existingSecret":"github-token","existingSecretKey":"GITHUB_TOKEN"}}'
 ```
 
 ## Usage
@@ -39,6 +47,7 @@ apiVersion: github.com/v1alpha1
 kind: GitHubDeployKey
 metadata:
   name: my-repo-deploy-key
+  namespace: flux-system
 spec:
   repository: "owner/repository"  # Your GitHub repository
   title: "Kubernetes-managed deploy key"
@@ -54,9 +63,18 @@ The operator will:
 ## Configuration
 
 The operator requires:
-- A GitHub token with repo access stored in a secret named `ghcr-secret`
-- The token secret must be in the `flux-system` namespace
+- A GitHub token with repo access stored in a Kubernetes secret
+- The token secret must be in the same namespace as the operator
 - RBAC permissions to manage secrets and custom resources
+
+### Helm Values
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `github.existingSecret` | Name of the secret containing the GitHub token | `""` |
+| `github.existingSecretKey` | Key in the secret that contains the GitHub token | `"GITHUB_TOKEN"` |
+| `image.repository` | Image repository | `ghcr.io/gurghet/github-deploy-key-operator/operator` |
+| `image.tag` | Image tag | `latest` |
 
 ## Security
 
