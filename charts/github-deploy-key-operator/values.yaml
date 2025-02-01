@@ -1,54 +1,65 @@
-# Default values for github-deploy-key-operator
+# Default values for github-deploy-key-operator.
+
 replicaCount: 1
 
 image:
-  repository: ghcr.io/gurghet/github-deploy-key-operator
+  repository: ghcr.io/gurghet/github-deploy-key-operator/operator
+  tag: latest  # We recommend using a specific version
   pullPolicy: Always
-  tag: "latest"
 
 nameOverride: ""
 fullnameOverride: ""
 
-# GitHub token configuration
+# GitHub configuration
 github:
-  # -- Name of the secret containing the GitHub token
-  existingSecret: ""
-  # -- Key in the secret that contains the GitHub token
-  existingSecretKey: "GITHUB_TOKEN"
-  # -- Create a new secret with this token (if existingSecret is not set)
+  # -- GitHub token (not recommended, use existingSecret instead)
   token: ""
+  
+  # -- Name of existing secret containing the GitHub token
+  existingSecret: ""
+  
+  # -- Key in the existing secret that contains the GitHub token
+  existingSecretKey: "GITHUB_TOKEN"
 
+# Security context configuration
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+# Service account configuration
 serviceAccount:
-  # -- Specifies whether a service account should be created
+  # -- Create a service account
   create: true
-  # -- The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # -- Service account name (if not creating one)
   name: ""
   # -- Annotations to add to the service account
   annotations: {}
 
-# Pod security context
-podSecurityContext:
-  runAsNonRoot: true
-  seccompProfile:
-    type: RuntimeDefault
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
 
-# Container security context
-securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop: ["ALL"]
-
-resources: {}
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
+# Node selector
 nodeSelector: {}
 
+# Tolerations
 tolerations: []
 
+# Affinity
 affinity: {}
