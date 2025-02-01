@@ -1,36 +1,59 @@
 # GitHub Deploy Key Operator
 
-A Kubernetes operator that automatically manages GitHub Deploy Keys for your repositories. This operator creates, rotates, and maintains SSH deploy keys for GitHub repositories, making it easier to manage secure repository access in your Kubernetes cluster.
+🔑 Automatically manage GitHub Deploy Keys in your Kubernetes cluster
 
-## Features
+## Why?
 
-- 🔑 Automatic SSH key generation and rotation
-- 🔒 Secure storage of private keys in Kubernetes secrets
-- 🔄 Periodic reconciliation to ensure keys exist and are valid
-- 📝 Read-only deploy keys by default
-- 🎯 Kubernetes-native custom resource definition
-- 🗑️ Automatic cleanup of old keys
+Managing deploy keys across multiple repositories is a common challenge in GitOps:
+- Manual key creation is error-prone
+- Key rotation is often forgotten
+- Tracking which keys belong to which clusters is difficult
 
-## Installation
+This operator automates these tasks by:
+1. Creating and rotating SSH keys automatically
+2. Storing keys securely in Kubernetes secrets
+3. Managing keys through Kubernetes resources
 
-### Using Flux (recommended)
+```
+┌──────────────┐         ┌──────────────┐
+│              │   1️⃣    │              │
+│  GitHubKey   │────────▶│   Operator   │
+│     CRD      │         │              │
+│              │         │              │
+└──────────────┘         └───────┬──────┘
+                                 │
+                                 │ 2️⃣
+                                 ▼
+                         ┌──────────────┐
+                         │   Generate   │
+                         │ SSH keypair  │
+                         └───────┬──────┘
+                                 │
+                         3️⃣      │
+              ┌─────────────────┴─────────────┐
+              │                               │
+              ▼                               ▼
+    ┌──────────────┐                 ┌──────────────┐
+    │   GitHub     │                 │  Kubernetes  │
+    │ Deploy Key   │                 │   Secret     │
+    │  (public)    │                 │  (private)   │
+    └──────────────┘                 └──────────────┘
+```
 
-1. Add the Helm repository:
+## Quick Start (5 minutes)
+
 ```bash
+# 1. Add the Helm repository
 flux create source helm github-deploy-key-operator \
   --url=oci://ghcr.io/gurghet/github-deploy-key-operator \
   --namespace=flux-system
-```
 
-2. Create a GitHub token secret:
-```bash
+# 2. Create GitHub token secret
 kubectl create secret generic github-token \
-  --namespace flux-system \
+  --namespace=flux-system \
   --from-literal=GITHUB_TOKEN=your_github_token
-```
 
-3. Install the operator:
-```bash
+# 3. Install the operator
 flux create helmrelease github-deploy-key-operator \
   --namespace=flux-system \
   --source=HelmRepository/github-deploy-key-operator \
@@ -38,20 +61,18 @@ flux create helmrelease github-deploy-key-operator \
   --values='{"github":{"existingSecret":"github-token","existingSecretKey":"GITHUB_TOKEN"}}'
 ```
 
-For Helm-only installation, see the [chart documentation](charts/github-deploy-key-operator/README.md).
-
 ## Usage
 
-1. Create a GitHubDeployKey resource:
+Create a GitHubDeployKey resource:
 
 ```yaml
 apiVersion: github.com/v1alpha1
 kind: GitHubDeployKey
 metadata:
-  name: my-repo-deploy-key
+  name: my-repo-key
   namespace: flux-system
 spec:
-  repository: "owner/repository"  # Your GitHub repository
+  repository: "owner/repository"
   title: "Kubernetes-managed deploy key"
   readOnly: true  # Recommended for security
 ```
@@ -62,20 +83,22 @@ The operator will:
 - Store the private key in a Kubernetes secret
 - Monitor and maintain the key's existence
 
-## Configuration
-
-The operator requires:
-- A GitHub token with repository access permissions
-- The token secret must be in the same namespace as the operator
-- RBAC permissions to manage secrets and custom resources
-
 ## Security
 
 - Private keys are stored only in Kubernetes secrets
-- Deploy keys are created as read-only by default
+- Deploy keys are read-only by default
 - SSH keys use RSA 4096-bit encryption
 - Automatic key rotation on CRD updates
-- No sensitive information is stored in the operator itself
+- GitHub token needs only repo deploy key permissions
+
+## Troubleshooting
+
+Common issues:
+1. **Key creation fails**: Check GitHub token permissions
+2. **Pod fails to start**: Verify secret exists and is readable
+3. **Key rotation fails**: Ensure old key exists in GitHub
+
+For detailed configuration and advanced usage, see our [Helm chart documentation](charts/github-deploy-key-operator/values.yaml).
 
 ## Contributing
 
@@ -83,4 +106,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+Apache License 2.0
