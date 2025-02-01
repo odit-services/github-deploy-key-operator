@@ -1,27 +1,38 @@
 # Default values for github-deploy-key-operator.
 
+# -- Number of operator replicas to run
 replicaCount: 1
 
+# -- Container image configuration
 image:
+  # -- Image repository in format: ghcr.io/gurghet/github-deploy-key-operator/operator
   repository: ghcr.io/gurghet/github-deploy-key-operator/operator
-  tag: latest  # We recommend using a specific version
+  # -- Image tag (we recommend using a specific version instead of latest)
+  tag: latest
+  # -- Image pull policy
   pullPolicy: Always
 
+# -- Override the chart name
 nameOverride: ""
+# -- Override the full chart name
 fullnameOverride: ""
 
-# GitHub configuration
+# -- GitHub configuration
 github:
   # -- GitHub token (not recommended, use existingSecret instead)
+  # This token needs repo or admin:public_key permissions
   token: ""
   
   # -- Name of existing secret containing the GitHub token
+  # The secret must be in the same namespace as the operator
   existingSecret: ""
   
   # -- Key in the existing secret that contains the GitHub token
+  # Default matches the example in the README
   existingSecretKey: "GITHUB_TOKEN"
 
-# Security context configuration
+# -- Pod security context configuration
+# These settings ensure the operator runs with minimal privileges
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
@@ -29,6 +40,8 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
+# -- Container security context
+# These settings restrict the operator's capabilities
 securityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
@@ -37,16 +50,19 @@ securityContext:
     drop:
       - ALL
 
-# Service account configuration
+# -- Service account configuration
 serviceAccount:
-  # -- Create a service account
+  # -- Whether to create a service account
   create: true
-  # -- Service account name (if not creating one)
+  # -- Name of the service account to use
+  # If not set and create is true, a name is generated
   name: ""
   # -- Annotations to add to the service account
   annotations: {}
 
-# Resource limits
+# -- Resource limits and requests
+# The operator is lightweight but needs enough resources
+# to handle multiple repositories
 resources:
   requests:
     cpu: 100m
@@ -55,11 +71,11 @@ resources:
     cpu: 500m
     memory: 256Mi
 
-# Node selector
+# -- Node selector for the operator pod
 nodeSelector: {}
 
-# Tolerations
+# -- Pod tolerations
 tolerations: []
 
-# Affinity
+# -- Pod affinity rules
 affinity: {}
