@@ -134,6 +134,5 @@ jobs:
 
       - name: Push Helm chart to OCI registry
         run: |
-          # Ensure CRDs are included in the package
-          helm package --include-crds charts/github-deploy-key-operator
+          helm package charts/github-deploy-key-operator
           helm push github-deploy-key-operator-${{ needs.release.outputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository }}
