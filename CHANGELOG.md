@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.1...v1.3.2) (2025-02-16)
+
+
+### Bug Fixes
+
+* include CRDs in Helm chart OCI package ([1952966](https://github.com/gurghet/github-deploy-key-operator/commit/19529662fc495c37f20d26e7fc7fd11a3209480c))
+
 ## [1.3.1](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.0...v1.3.1) (2025-01-31)
 
 
