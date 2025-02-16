@@ -11,3 +11,14 @@ keywords:
   - deploy-key
   - operator
   - flux
+annotations:
+  "com.github.fluxcd.source-controller/flux-patch-allowed": "true"
+  "com.github.fluxcd.source-controller/ignore": "false"
+  "com.github.fluxcd.source-controller/source-checksum": "true"
+  "com.github.fluxcd.source-controller/source-controller-gen": "true"
+  "com.github.fluxcd.source-controller/source-controller-gen-version": "v1beta2"
+  "com.github.fluxcd.source-controller/source-controller-gen-api-version": "source.toolkit.fluxcd.io/v1beta2"
+  "com.github.fluxcd.source-controller/source-controller-gen-experimental": "true"
+  "com.github.fluxcd.source-controller/source-controller-gen-experimental-api-version": "source.toolkit.fluxcd.io/v1beta2"
+  "com.github.fluxcd.source-controller/source-controller-gen-version": "v1beta2"
+  includesCRDs: "true"
