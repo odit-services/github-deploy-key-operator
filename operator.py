@@ -20,15 +20,79 @@ class GitHubKeyManager:
     def _get_github_token(self):
         """Retrieve GitHub token from secret."""
         try:
-            secret = core_v1_api.read_namespaced_secret(
-                name='github-token',
-                namespace='flux-system'
+            self.logger.info("Checking Kubernetes contexts...")
+            contexts = kubernetes.config.list_kube_config_contexts()
+            if not contexts:
+                self.logger.error("No Kubernetes context found. This usually means the operator is not properly configured with cluster access.")
+                raise kopf.PermanentError("No Kubernetes context found. Please ensure the operator has proper KUBECONFIG or in-cluster configuration.")
+                
+            # Get namespace from service account token
+            self.logger.info("Attempting to determine current namespace...")
+            try:
+                namespace_file = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+                self.logger.debug(f"Reading namespace from {namespace_file}")
+                with open(namespace_file, "r") as f:
+                    current_namespace = f.read().strip()
+                self.logger.info(f"Successfully determined current namespace: {current_namespace}")
+            except FileNotFoundError:
+                self.logger.warning(
+                    "Could not read namespace from service account token. "
+                    "This typically means either: \n"
+                    "1. The pod is not running in a Kubernetes cluster\n"
+                    "2. The service account token is not mounted\n"
+                    "Falling back to 'default' namespace."
+                )
+                current_namespace = "default"
+            
+            self.logger.info(f"Attempting to read 'github-token' secret from namespace '{current_namespace}'")
+            try:
+                secret = core_v1_api.read_namespaced_secret(
+                    name='github-token',
+                    namespace=current_namespace
+                )
+            except kubernetes.client.exceptions.ApiException as e:
+                if e.status == 404:
+                    self.logger.error(
+                        f"Secret 'github-token' not found in namespace '{current_namespace}'. "
+                        "To fix this:\n"
+                        "1. Create a GitHub personal access token\n"
+                        "2. Create a Kubernetes secret:\n"
+                        "   kubectl create secret generic github-token \\\n"
+                        "     --from-literal=GITHUB_TOKEN=your_token_here \\\n"
+                        f"     -n {current_namespace}"
+                    )
+                else:
+                    self.logger.error(f"API error while reading secret: {e}")
+                raise kopf.PermanentError(f"Failed to get GitHub token: {e}")
+
+            try:
+                token = base64.b64decode(secret.data['GITHUB_TOKEN']).decode()
+                self.logger.info(f"Successfully retrieved GitHub token (starts with: {token[:4]}...)")
+                return token
+            except KeyError:
+                self.logger.error(
+                    "Secret 'github-token' exists but does not contain GITHUB_TOKEN key. "
+                    "Please ensure the secret is created with the correct key:\n"
+                    "kubectl create secret generic github-token \\\n"
+                    "  --from-literal=GITHUB_TOKEN=your_token_here \\\n"
+                    f"  -n {current_namespace}"
+                )
+                raise kopf.PermanentError("Secret exists but GITHUB_TOKEN key is missing")
+            except Exception as e:
+                self.logger.error(f"Error decoding GitHub token: {e}")
+                raise kopf.PermanentError(f"Failed to decode GitHub token: {e}")
+
+        except Exception as e:
+            self.logger.error(
+                "Unexpected error in _get_github_token. "
+                f"Error: {str(e)}\n"
+                "For troubleshooting:\n"
+                "1. Check pod logs for more details\n"
+                "2. Verify RBAC permissions allow reading secrets\n"
+                "3. Confirm the github-token secret exists and is properly formatted\n"
+                f"4. Verify the operator has access to namespace '{current_namespace}'"
             )
-            token = base64.b64decode(secret.data['GITHUB_TOKEN']).decode()
-            self.logger.info(f"Got GitHub token: {token[:4]}...{token[-4:]}")
-            return token
-        except kubernetes.client.exceptions.ApiException as e:
-            raise kopf.PermanentError(f"Failed to get GitHub token: {e}")
+            raise kopf.PermanentError(f"Unexpected error getting GitHub token: {e}")
 
     def get_repository(self, repo_name):
         """Get GitHub repository instance."""
