@@ -19,30 +19,25 @@ class GitHubKeyManager:
 
     def _get_github_token(self):
         """Retrieve GitHub token from secret."""
+        current_namespace = "operators"  # Set default namespace
+        
         try:
-            self.logger.info("Checking Kubernetes contexts...")
-            contexts = kubernetes.config.list_kube_config_contexts()
-            if not contexts:
-                self.logger.error("No Kubernetes context found. This usually means the operator is not properly configured with cluster access.")
-                raise kopf.PermanentError("No Kubernetes context found. Please ensure the operator has proper KUBECONFIG or in-cluster configuration.")
-                
-            # Get namespace from service account token
-            self.logger.info("Attempting to determine current namespace...")
+            self.logger.info("Running in-cluster, attempting to determine current namespace...")
             try:
                 namespace_file = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
                 self.logger.debug(f"Reading namespace from {namespace_file}")
                 with open(namespace_file, "r") as f:
-                    current_namespace = f.read().strip()
-                self.logger.info(f"Successfully determined current namespace: {current_namespace}")
-            except FileNotFoundError:
+                    ns = f.read().strip()
+                    if ns:  # Only use the namespace if we got a non-empty value
+                        current_namespace = ns
+                        self.logger.info(f"Successfully determined current namespace: {current_namespace}")
+                    else:
+                        self.logger.warning("Empty namespace found in service account token, using default 'operators'")
+            except (FileNotFoundError, PermissionError) as e:
                 self.logger.warning(
-                    "Could not read namespace from service account token. "
-                    "This typically means either: \n"
-                    "1. The pod is not running in a Kubernetes cluster\n"
-                    "2. The service account token is not mounted\n"
-                    "Falling back to 'default' namespace."
+                    f"Could not read namespace from service account token ({str(e)}). "
+                    "Falling back to default namespace 'operators'"
                 )
-                current_namespace = "default"
             
             self.logger.info(f"Attempting to read 'github-token' secret from namespace '{current_namespace}'")
             try:
