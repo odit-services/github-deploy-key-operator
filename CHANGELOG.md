@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/gurghet/github-deploy-key-operator/compare/v1.4.0...v1.4.1) (2025-02-23)
+
+
+### Bug Fixes
+
+* better error handling ([cd4f91b](https://github.com/gurghet/github-deploy-key-operator/commit/cd4f91bf777db03aa2317d2e71e51b8cc390f023))
+
 # [1.4.0](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.2...v1.4.0) (2025-02-23)
 
 
