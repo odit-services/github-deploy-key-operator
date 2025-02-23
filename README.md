@@ -70,7 +70,7 @@ apiVersion: github.com/v1alpha1
 kind: GitHubDeployKey
 metadata:
   name: my-repo-key
-  namespace: flux-system
+  namespace: flux-system # or your preferred namespace
 spec:
   repository: "owner/repository"
   title: "Kubernetes-managed deploy key"
