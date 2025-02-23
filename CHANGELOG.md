@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.2...v1.4.0) (2025-02-23)
+
+
+### Features
+
+* any namespace ([6cc337b](https://github.com/gurghet/github-deploy-key-operator/commit/6cc337b9af22d327941d182df94e478654f612ec))
+
 ## [1.3.2](https://github.com/gurghet/github-deploy-key-operator/compare/v1.3.1...v1.3.2) (2025-02-16)
 
 
